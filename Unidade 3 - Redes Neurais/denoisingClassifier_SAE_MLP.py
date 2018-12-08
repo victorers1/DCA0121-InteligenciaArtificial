@@ -28,7 +28,6 @@ def plot_confusion_matrix(cm, classes,
     else:
         print('Matriz de confusão sem normalização')
 
-    print(cm)
 
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
@@ -114,56 +113,49 @@ def pre_processamento(x_treino, x_teste):
 def plt1():
     #Print das figuras sem ruído (linha 1) e com ruído (linha 2)
     n = 10  # how many digits we will display
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=(15,3))
     for i in range(n):
         #Imagem original
-        ax = plt.subplot(2, n, i + 1)
+        plt.subplot(2, n, i + 1)
         plt.imshow(x_teste[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
+        plt.axis('off')
     
         #Imagem com ruído
-        ax = plt.subplot(2, n, i + 1 + n)
+        plt.subplot(2, n, i + 1 + n)
         plt.imshow(x_test_noisy[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-        
+        plt.axis('off')
         
     plt.show()
     
 def plt2():
     n = 10  #Quantidade de dígitos que serão mostrados
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=(15,6))
     for i in range(n):
         #Imagem original
-        ax = plt.subplot(4, n, i + 1)
+        plt.subplot(4, n, i + 1)
         plt.imshow(x_teste[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-    
+        plt.axis('off')
+        
         #Imagem com ruído
-        ax = plt.subplot(4, n, i + 1 + n)
+        plt.subplot(4, n, i + 1 + n)
         plt.imshow(x_test_noisy[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
+        plt.axis('off')
         
         #Imagem codificada
-        ax = plt.subplot(4, n, i + 1 + 2*n)
+        plt.subplot(4, n, i + 1 + 2*n)
         plt.imshow(encoded_imgs[i].reshape(enc_dis[0], enc_dis[1]))
         plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-    
+        plt.axis('off')
+        
         #Imagem reconstruída
-        ax = plt.subplot(4, n, i + 1 + 3*n)
+        plt.subplot(4, n, i + 1 + 3*n)
         plt.imshow(decoded_imgs[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
+        plt.axis('off')
     plt.show()
     
 def SAE_Model():
@@ -204,37 +196,34 @@ def SAE_Model():
 
 def predict():
     #Predição dos dados sem ruído
-    print('Predição dos dados sem ruído')
     rotulos = model.predict_classes(x_teste)
     cm = confusion_matrix(y_teste, rotulos)
     np.set_printoptions(precision=2)
     plt.figure(figsize=(9,9))
-    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'])
+    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], title='Predição dos dados sem ruído')
     plt.show()
         
-    print('Precisão de:', np.trace(cm)/len(y_teste)*100,'%')
+    print('Precisão de: {}%'.format(np.trace(cm)/len(y_teste)*100))
     
     #Predição dos dados ruidosos que NÃO foram submetidos a rede SAE
-    print('Predição dos dados ruidosos que foram submetidos a rede SAE')
     rotulos = model.predict_classes(x_test_noisy)
     cm = confusion_matrix(y_teste, rotulos)
     np.set_printoptions(precision=2)
     plt.figure(figsize=(9,9))
-    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'])
+    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], title='Predição dos dados ruidosos que foram submetidos a rede SAE')
     plt.show()
         
-    print('Precisão de:', np.trace(cm)/len(y_teste)*100,'%')
+    print('Precisão de: {}%'.format(np.trace(cm)/len(y_teste)*100))
         
     #Predição dos dados ruidosos que foram submetidos a rede SAE
-    print('Predição dos dados ruidosos que foram submetidos a rede SAE')
     rotulos = model.predict_classes(decoded_imgs)
     cm = confusion_matrix(y_teste, rotulos)
     np.set_printoptions(precision=2)
     plt.figure(figsize=(9,9))
-    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'])
+    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], title='Predição dos dados ruidosos que foram submetidos a rede SAE')
     plt.show()
         
-    print('Precisão de:', np.trace(cm)/len(y_teste)*100,'%')
+    print('Precisão de: {}%'.format(np.trace(cm)/len(y_teste)*100))
 
 def save_var():
     np.save('x_treino.npy', x_treino)
@@ -275,7 +264,6 @@ def boot():
 #MODE pode ser 'START' ou 'BOOT'
 MODE = 'START'
 if MODE == 'START':
-    #START
     x_treino, x_teste, y_treino, y_teste = read_img()
     img_shape = x_treino.shape[1:]
     x_treino, x_teste, x_train_noisy, x_test_noisy = pre_processamento(
@@ -291,14 +279,14 @@ if MODE == 'START':
     #Parâmetros para o treinamento da rede neural
     autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy', 
                         metrics=['accuracy'])
-    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=10e-5, 
+    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=1e-5, 
                                       patience=2, verbose=2, mode='auto')
     #Treina a rede SAE
     SAE = autoencoder.fit(x_train_noisy, x_treino,
                     epochs=100,
                     batch_size=10,
                     validation_data=(x_test_noisy, x_teste), 
-                    callbacks=[monitor])
+                    callbacks=[monitor], verbose=2)
     
     #Valor da função custo e precisão da rede durante o treinamento
     plt.plot(SAE.history['loss'])
@@ -328,12 +316,12 @@ if MODE == 'START':
     model.compile(optimizer='adadelta', loss='sparse_categorical_crossentropy', 
                   metrics=['accuracy'])
     
-    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=10e-5,
+    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=1e-3,
                                       patience=2, verbose=2, mode='auto')
     
     #Treina a rede MLP
-    H = model.fit(x_treino, y_treino, epochs=80, batch_size=20, 
-                  callbacks=[monitor]) 
+    H = model.fit(x_treino, y_treino, epochs=40, batch_size=20, 
+                  callbacks=[monitor], verbose=2) 
     
     #Valor da função custo e precisão da rede durante o treinamento
     plt.plot(H.history['loss'])
@@ -345,7 +333,6 @@ if MODE == 'START':
     predict()
 
 elif MODE == 'BOOT':
-    #BOOT
     (x_treino, x_teste, y_treino, y_teste, x_train_noisy, 
             x_test_noisy, encoded_imgs, decoded_imgs, W_SAE, W_MLP, 
             encoding_dim, enc_dis) = boot()
