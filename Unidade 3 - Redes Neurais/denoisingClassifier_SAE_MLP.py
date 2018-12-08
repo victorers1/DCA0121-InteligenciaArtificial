@@ -267,7 +267,7 @@ if MODE == 'START':
     autoencoder, encoder, input_dim, encoding_dim = SAE_Model()
     
     #Parâmetros para o treinamento da rede neural
-    autoencoder.compile(optimizer='Adamax', loss='binary_crossentropy', 
+    autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy', 
                         metrics=['accuracy'])
     monitor = callbacks.EarlyStopping(monitor='loss', min_delta=0, patience=2, 
                                       verbose=0, mode='auto')
@@ -304,7 +304,7 @@ if MODE == 'START':
     model.summary() #Mostra no console a arquitetura da rede (Parte do Encoder)
     
     #Parâmetros para o treinamento da rede neural
-    model.compile(optimizer='adagrad', loss='sparse_categorical_crossentropy', 
+    model.compile(optimizer='adadelta', loss='sparse_categorical_crossentropy', 
                   metrics=['accuracy'])
     
     monitor = callbacks.EarlyStopping(monitor='loss', min_delta=1e-5, patience=2, 
