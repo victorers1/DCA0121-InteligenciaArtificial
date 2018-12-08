@@ -72,7 +72,6 @@ def read_img():
             y.append(ind)
         ind+=1
     x = np.array(x); y = np.array(y)
-    #x = ks.utils.normalize(x, axis=1)
     x_treino, x_teste, y_treino, y_teste = sk.train_test_split(x,y, 
                                             test_size=0.20, random_state=42)
     return x_treino, x_teste, y_treino, y_teste
@@ -101,13 +100,14 @@ def pre_processamento(x_treino, x_teste):
     
     x_test_noisy = x_teste + noise_factor * np.random.normal(
             loc=0.0, scale=1.0, size=x_teste.shape) 
+    
     '''
     Clipando (np.clip()) ou não, o resultado final é praticamente o mesmo
     Clipar mantém o fundo predominantemente branco, não clipar deixa o fundo 
     com tons de cinza.
     '''
-    x_train_noisy = np.clip(x_train_noisy, 0., 1.)
-    x_test_noisy = np.clip(x_test_noisy, 0., 1.)
+    #x_train_noisy = np.clip(x_train_noisy, 0., 1.)
+    #x_test_noisy = np.clip(x_test_noisy, 0., 1.)
     
     return x_treino, x_teste, x_train_noisy, x_test_noisy
 
@@ -118,17 +118,19 @@ def plt1():
     for i in range(n):
         #Imagem original
         ax = plt.subplot(2, n, i + 1)
-        plt.imshow(x_teste[i].reshape(25, 25))
+        plt.imshow(x_teste[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
     
         #Imagem com ruído
         ax = plt.subplot(2, n, i + 1 + n)
-        plt.imshow(x_test_noisy[i].reshape(25, 25))
+        plt.imshow(x_test_noisy[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
+        
+        
     plt.show()
     
 def plt2():
@@ -137,28 +139,28 @@ def plt2():
     for i in range(n):
         #Imagem original
         ax = plt.subplot(4, n, i + 1)
-        plt.imshow(x_teste[i].reshape(encoding_dim, encoding_dim))
+        plt.imshow(x_teste[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
     
         #Imagem com ruído
         ax = plt.subplot(4, n, i + 1 + n)
-        plt.imshow(x_test_noisy[i].reshape(encoding_dim, encoding_dim))
+        plt.imshow(x_test_noisy[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         
         #Imagem codificada
         ax = plt.subplot(4, n, i + 1 + 2*n)
-        plt.imshow(encoded_imgs[i].reshape(5, 5))
+        plt.imshow(encoded_imgs[i].reshape(enc_dis[0], enc_dis[1]))
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
     
         #Imagem reconstruída
         ax = plt.subplot(4, n, i + 1 + 3*n)
-        plt.imshow(decoded_imgs[i].reshape(encoding_dim, encoding_dim))
+        plt.imshow(decoded_imgs[i].reshape(img_shape[0], img_shape[1]))
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
@@ -166,7 +168,9 @@ def plt2():
     
 def SAE_Model():
     encoding_dim = 25 #Menor tamanho da representação da imagem
-    #input_dim  é a ordem da matriz (quantidade de pixels numa linha da imagem quadrada)
+    #enc_dis[0]*enc_dis [1] = encoding_dim
+    enc_dis = (5,5) #Tamanho da imagem codificada. 
+    #input_dim  é o tamanho da camada de entrada (qtd de pixels da imagem)
     input_dim = x_treino.shape[1]
     
     #Rede Neural SAE
@@ -193,14 +197,26 @@ def SAE_Model():
     encoder = Model(input_img, 
                     encoder_layer3(encoder_layer2(encoder_layer1(input_img))))
     
-    encoder.summary() #Mostra no console a arquitetura da rede (Parte do Encoder)
+    #Mostra no console a arquitetura da rede (Parte do Encoder)
+    encoder.summary()
     
-    return autoencoder, encoder, input_dim, encoding_dim    
+    return autoencoder, encoder, input_dim, encoding_dim, enc_dis 
 
 def predict():
     #Predição dos dados sem ruído
     print('Predição dos dados sem ruído')
     rotulos = model.predict_classes(x_teste)
+    cm = confusion_matrix(y_teste, rotulos)
+    np.set_printoptions(precision=2)
+    plt.figure(figsize=(9,9))
+    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'])
+    plt.show()
+        
+    print('Precisão de:', np.trace(cm)/len(y_teste)*100,'%')
+    
+    #Predição dos dados ruidosos que NÃO foram submetidos a rede SAE
+    print('Predição dos dados ruidosos que foram submetidos a rede SAE')
+    rotulos = model.predict_classes(x_test_noisy)
     cm = confusion_matrix(y_teste, rotulos)
     np.set_printoptions(precision=2)
     plt.figure(figsize=(9,9))
@@ -228,6 +244,8 @@ def save_var():
     np.save('x_train_noisy.npy', x_train_noisy)
     np.save('x_test_noisy.npy', x_test_noisy)
     np.save('x_test_noisy.npy', x_test_noisy)
+    np.save('encoding_dim.npy', encoding_dim)
+    np.save('enc_dis.npy', enc_dis)
     np.save('encoded_imgs.npy', encoded_imgs)
     np.save('decoded_imgs.npy', decoded_imgs)
     
@@ -244,18 +262,22 @@ def boot():
     y_teste = np.load('y_teste.npy')
     x_train_noisy = np.load('x_train_noisy.npy')
     x_test_noisy = np.load('x_test_noisy.npy')
+    encoding_dim = np.load('encoding_dim.npy')
+    enc_dis = np.load('enc_dis.npy')
     encoded_imgs = np.load('encoded_imgs.npy')
     decoded_imgs = np.load('decoded_imgs.npy')
     W_SAE = np.load('W_SAE.npy')
     W_MLP = np.load('W_MLP.npy')
     return (x_treino, x_teste, y_treino, y_teste, x_train_noisy, 
-            x_test_noisy, encoded_imgs, decoded_imgs, W_SAE, W_MLP)
+            x_test_noisy, encoded_imgs, decoded_imgs, W_SAE, W_MLP, 
+            encoding_dim, enc_dis)
 
 #MODE pode ser 'START' ou 'BOOT'
 MODE = 'START'
 if MODE == 'START':
     #START
     x_treino, x_teste, y_treino, y_teste = read_img()
+    img_shape = x_treino.shape[1:]
     x_treino, x_teste, x_train_noisy, x_test_noisy = pre_processamento(
             x_treino, x_teste)
     
@@ -264,20 +286,19 @@ if MODE == 'START':
     
     #Construção da rede neural SAE (Stacked Autoencoder)
     #A rede terá a arquitetura (625, 100, 50, 25, 50, 100, 625)
-    autoencoder, encoder, input_dim, encoding_dim = SAE_Model()
+    autoencoder, encoder, input_dim, encoding_dim, enc_dis = SAE_Model()
     
     #Parâmetros para o treinamento da rede neural
     autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy', 
                         metrics=['accuracy'])
-    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=0, patience=2, 
-                                      verbose=0, mode='auto')
+    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=10e-5, 
+                                      patience=2, verbose=2, mode='auto')
     #Treina a rede SAE
     SAE = autoencoder.fit(x_train_noisy, x_treino,
                     epochs=100,
-                    batch_size=20,
+                    batch_size=10,
                     validation_data=(x_test_noisy, x_teste), 
-                    callbacks=[monitor],
-                    verbose=2)  # verbose=2 nos mostra só a época atual
+                    callbacks=[monitor])
     
     #Valor da função custo e precisão da rede durante o treinamento
     plt.plot(SAE.history['loss'])
@@ -298,7 +319,7 @@ if MODE == 'START':
     #A rede neural abaixo é uma MLP que irá classificar as imagens obtidas na 
     #saída da SAE. 
     model = Sequential()
-    model.add(Dense(128, input_shape=(input_dim,), activation='sigmoid'))
+    model.add(Dense(10, input_shape=(input_dim,), activation='sigmoid'))
     model.add(Dense(9, activation='softmax'))
     
     model.summary() #Mostra no console a arquitetura da rede (Parte do Encoder)
@@ -307,15 +328,12 @@ if MODE == 'START':
     model.compile(optimizer='adadelta', loss='sparse_categorical_crossentropy', 
                   metrics=['accuracy'])
     
-    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=1e-5, patience=2, 
-                                      verbose=0, mode='auto')
+    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=10e-5,
+                                      patience=2, verbose=2, mode='auto')
     
     #Treina a rede MLP
-    H = model.fit(x_treino, y_treino, 
-                  epochs=80, 
-                  batch_size=20, 
-                  callbacks=[monitor], 
-                  verbose=2)
+    H = model.fit(x_treino, y_treino, epochs=80, batch_size=20, 
+                  callbacks=[monitor]) 
     
     #Valor da função custo e precisão da rede durante o treinamento
     plt.plot(H.history['loss'])
@@ -329,11 +347,12 @@ if MODE == 'START':
 elif MODE == 'BOOT':
     #BOOT
     (x_treino, x_teste, y_treino, y_teste, x_train_noisy, 
-            x_test_noisy, encoded_imgs, decoded_imgs, W_SAE, W_MLP) = boot()
-    autoencoder, encoder, input_dim, encoding_dim = SAE_Model()
-    #autoencoder.set_weights(W_SAE)
+            x_test_noisy, encoded_imgs, decoded_imgs, W_SAE, W_MLP, 
+            encoding_dim, enc_dis) = boot()
+    autoencoder, encoder, input_dim, encoding_dim, enc_dis = SAE_Model()
+    autoencoder.set_weights(W_SAE)
     model = Sequential()
-    model.add(Dense(128, input_shape=(input_dim,), activation='sigmoid'))
+    model.add(Dense(10, input_shape=(input_dim,), activation='sigmoid'))
     model.add(Dense(9, activation='softmax'))
     model.set_weights(W_MLP)
     plt2()
@@ -342,4 +361,4 @@ elif MODE == 'BOOT':
 else:
     print('NÃO EXISTE ESTE MODO. TENDE O MODO <START> OU <BOOT>')
     
-save_var()  # Salva pesos das duas redes. Está comentado para o programador não executá-lo inadvertidamente.
+save_var()
