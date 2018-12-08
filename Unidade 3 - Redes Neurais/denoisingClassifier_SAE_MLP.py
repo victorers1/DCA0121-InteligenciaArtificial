@@ -166,7 +166,7 @@ def plt2():
     
 def SAE_Model():
     encoding_dim = 25 #Menor tamanho da representação da imagem
-    #input_dim  é a dimensão da camada de entrada (quantidade de pixels da imagem)
+    #input_dim  é a ordem da matriz (quantidade de pixels numa linha da imagem quadrada)
     input_dim = x_treino.shape[1]
     
     #Rede Neural SAE
@@ -252,7 +252,7 @@ def boot():
             x_test_noisy, encoded_imgs, decoded_imgs, W_SAE, W_MLP)
 
 #MODE pode ser 'START' ou 'BOOT'
-MODE = 'BOOT'
+MODE = 'START'
 if MODE == 'START':
     #START
     x_treino, x_teste, y_treino, y_teste = read_img()
@@ -267,7 +267,7 @@ if MODE == 'START':
     autoencoder, encoder, input_dim, encoding_dim = SAE_Model()
     
     #Parâmetros para o treinamento da rede neural
-    autoencoder.compile(optimizer='adam', loss='binary_crossentropy', 
+    autoencoder.compile(optimizer='Adamax', loss='binary_crossentropy', 
                         metrics=['accuracy'])
     monitor = callbacks.EarlyStopping(monitor='loss', min_delta=0, patience=2, 
                                       verbose=0, mode='auto')
@@ -275,7 +275,9 @@ if MODE == 'START':
     SAE = autoencoder.fit(x_train_noisy, x_treino,
                     epochs=100,
                     batch_size=20,
-                    validation_data=(x_test_noisy, x_teste), callbacks=[monitor])
+                    validation_data=(x_test_noisy, x_teste), 
+                    callbacks=[monitor],
+                    verbose=2)  # verbose=2 nos mostra só a época atual
     
     #Valor da função custo e precisão da rede durante o treinamento
     plt.plot(SAE.history['loss'])
@@ -302,15 +304,18 @@ if MODE == 'START':
     model.summary() #Mostra no console a arquitetura da rede (Parte do Encoder)
     
     #Parâmetros para o treinamento da rede neural
-    model.compile(optimizer='adadelta', loss='sparse_categorical_crossentropy', 
+    model.compile(optimizer='adagrad', loss='sparse_categorical_crossentropy', 
                   metrics=['accuracy'])
     
-    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=0, patience=2, 
+    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=1e-5, patience=2, 
                                       verbose=0, mode='auto')
     
     #Treina a rede MLP
-    H = model.fit(x_treino, y_treino, epochs=80, batch_size=20, 
-                  callbacks=[monitor]) 
+    H = model.fit(x_treino, y_treino, 
+                  epochs=80, 
+                  batch_size=20, 
+                  callbacks=[monitor], 
+                  verbose=2)
     
     #Valor da função custo e precisão da rede durante o treinamento
     plt.plot(H.history['loss'])
@@ -337,4 +342,4 @@ elif MODE == 'BOOT':
 else:
     print('NÃO EXISTE ESTE MODO. TENDE O MODO <START> OU <BOOT>')
     
-#save_var()
+save_var()  # Salva pesos das duas redes. Está comentado para o programador não executá-lo inadvertidamente.
