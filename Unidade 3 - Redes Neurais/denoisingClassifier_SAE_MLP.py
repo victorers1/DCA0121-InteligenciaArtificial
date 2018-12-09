@@ -13,6 +13,7 @@ from sklearn.metrics import confusion_matrix
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 
 def plot_confusion_matrix(cm, classes,
                           normalize=False,
@@ -75,7 +76,7 @@ def read_img():
                                             test_size=0.20, random_state=42)
     return x_treino, x_teste, y_treino, y_teste
 
-def pre_processamento(x_treino, x_teste):
+def pre_processamento(x_treino, x_teste, pMode=1):
     '''
     Esta função primeiro escala os dados que originalmente estão entre 
     [0, 255] para o intervalo [0, 1].
@@ -85,6 +86,12 @@ def pre_processamento(x_treino, x_teste):
     intervalo [0, 1] são 'saturados' para obedecerem o intervalo.
     Esta função retorna os dados normalizados assim como suas versões com 
     ruído.
+    pMode pode assumir três valores, são eles: 1 (definido como padrão), 2 e 3.
+    pMode = 1: A imagem original é submetida a um ruído gaussiano N(0, 1.5).
+    pMode = 2: A imagem original é transformada em seu respectivo negativo.
+    pMode = 3: É colocado uma tarja preta na imagem original.
+    pMode = Qualquer outro valor: A imagem original é transformada em seu 
+    respectivo negativo e em seguida é aplicado um ruído gaussiano
     '''
     max_value = float(x_treino.max())
     x_treino = x_treino.astype('float32') / max_value
@@ -93,12 +100,32 @@ def pre_processamento(x_treino, x_teste):
     x_treino = x_treino.reshape((len(x_treino), np.prod(x_treino.shape[1:])))
     x_teste = x_teste.reshape((len(x_teste), np.prod(x_teste.shape[1:])))
     
-    noise_factor = 0.7 #Desvio padrão da distribuição normal
-    x_train_noisy = x_treino + noise_factor * np.random.normal(
-            loc=0.0, scale=1.0, size=x_treino.shape) 
+    noise_factor = 0.5 #Desvio padrão da distribuição normal
     
-    x_test_noisy = x_teste + noise_factor * np.random.normal(
-            loc=0.0, scale=1.0, size=x_teste.shape) 
+    if pMode == 1:
+        x_train_noisy = x_treino + noise_factor * np.random.normal(
+            loc=0.0, scale=1.0, size=x_treino.shape) 
+        x_test_noisy = x_teste + noise_factor * np.random.normal(
+                loc=0.0, scale=1.0, size=x_teste.shape) 
+    elif pMode == 2:
+        x_train_noisy = np.ones(x_treino.shape) - x_treino
+        x_test_noisy = np.ones(x_teste.shape) - x_teste
+    elif pMode == 3:
+        ind = np.random.randint(6,17)
+        
+        x_train_noisy = copy.deepcopy(x_treino)
+        x_train_noisy[:,ind*25:ind*25+25*5] = 0
+        
+        x_test_noisy = copy.deepcopy(x_teste)
+        x_test_noisy[:,(ind)*25:(ind)*25+25*5] = 0
+    else:
+        x_train_noisy = x_treino + noise_factor * np.random.normal(
+            loc=0.0, scale=1.0, size=x_treino.shape) 
+        x_test_noisy = x_teste + noise_factor * np.random.normal(
+                loc=0.0, scale=1.0, size=x_teste.shape) 
+        x_train_noisy = np.ones(x_treino.shape) - x_treino
+        x_test_noisy = np.ones(x_teste.shape) - x_teste
+        
     
     '''
     Clipando (np.clip()) ou não, o resultado final é praticamente o mesmo
@@ -200,31 +227,32 @@ def predict():
     cm = confusion_matrix(y_teste, rotulos)
     np.set_printoptions(precision=2)
     plt.figure(figsize=(9,9))
-    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], title='Predição dos dados sem ruído')
+    title = 'Predição dos dados sem ruído\n'+('Precisão de: {}%'.format(
+            np.trace(cm)/len(y_teste)*100))
+    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], 
+                          title=title)
     plt.show()
-        
-    print('Precisão de: {}%'.format(np.trace(cm)/len(y_teste)*100))
     
     #Predição dos dados ruidosos que NÃO foram submetidos a rede SAE
     rotulos = model.predict_classes(x_test_noisy)
     cm = confusion_matrix(y_teste, rotulos)
     np.set_printoptions(precision=2)
     plt.figure(figsize=(9,9))
-    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], title='Predição dos dados ruidosos que foram submetidos a rede SAE')
+    title = 'Predição dos dados ruidosos que NÃO foram submetidos a rede SAE\n'+'Precisão de: {}%'.format(np.trace(cm)/len(y_teste)*100)
+    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], 
+                          title=title)
     plt.show()
-        
-    print('Precisão de: {}%'.format(np.trace(cm)/len(y_teste)*100))
         
     #Predição dos dados ruidosos que foram submetidos a rede SAE
     rotulos = model.predict_classes(decoded_imgs)
     cm = confusion_matrix(y_teste, rotulos)
     np.set_printoptions(precision=2)
     plt.figure(figsize=(9,9))
-    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], title='Predição dos dados ruidosos que foram submetidos a rede SAE')
+    title = 'Predição dos dados ruidosos que foram submetidos a rede SAE\n'+'Precisão de: {}%'.format(np.trace(cm)/len(y_teste)*100)
+    plot_confusion_matrix(cm, ['a','b','c','d','e','f','i','o','u'], 
+                          title=title)
     plt.show()
         
-    print('Precisão de: {}%'.format(np.trace(cm)/len(y_teste)*100))
-
 def save_var():
     np.save('x_treino.npy', x_treino)
     np.save('x_teste.npy', x_teste)
@@ -237,6 +265,7 @@ def save_var():
     np.save('enc_dis.npy', enc_dis)
     np.save('encoded_imgs.npy', encoded_imgs)
     np.save('decoded_imgs.npy', decoded_imgs)
+    np.save('pMode.npy', pMode)
     
     W_SAE = autoencoder.get_weights()
     np.save('W_SAE.npy', W_SAE)
@@ -255,10 +284,12 @@ def boot():
     enc_dis = np.load('enc_dis.npy')
     encoded_imgs = np.load('encoded_imgs.npy')
     decoded_imgs = np.load('decoded_imgs.npy')
+    pMode = np.load('pMode.npy')
+    
     W_SAE = np.load('W_SAE.npy')
     W_MLP = np.load('W_MLP.npy')
     return (x_treino, x_teste, y_treino, y_teste, x_train_noisy, 
-            x_test_noisy, encoded_imgs, decoded_imgs, W_SAE, W_MLP, 
+            x_test_noisy, encoded_imgs, decoded_imgs, pMode, W_SAE, W_MLP, 
             encoding_dim, enc_dis)
 
 #MODE pode ser 'START' ou 'BOOT'
@@ -266,8 +297,9 @@ MODE = 'START'
 if MODE == 'START':
     x_treino, x_teste, y_treino, y_teste = read_img()
     img_shape = x_treino.shape[1:]
+    pMode=3 #Forma com que a imagem será modificada
     x_treino, x_teste, x_train_noisy, x_test_noisy = pre_processamento(
-            x_treino, x_teste)
+            x_treino, x_teste, pMode)
     
     #Print das figuras sem ruído (linha 1) e com ruído (linha 2)
     plt1()
@@ -334,7 +366,7 @@ if MODE == 'START':
 
 elif MODE == 'BOOT':
     (x_treino, x_teste, y_treino, y_teste, x_train_noisy, 
-            x_test_noisy, encoded_imgs, decoded_imgs, W_SAE, W_MLP, 
+            x_test_noisy, encoded_imgs, decoded_imgs, pMode, W_SAE, W_MLP, 
             encoding_dim, enc_dis) = boot()
     autoencoder, encoder, input_dim, encoding_dim, enc_dis = SAE_Model()
     autoencoder.set_weights(W_SAE)
