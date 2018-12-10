@@ -103,17 +103,18 @@ def pre_processamento(x_treino, x_teste, ruidos='g'):
     
     dim = x_treino.shape[1:]  # dimensão das imagens
     
-    if 'n' in ruidos:  # transforma um imagem no seu negativo
-        x_train_noisy = np.ones((dim[0], dim[1])) - x_train_noisy
-        x_test_noisy = np.ones((dim[0], dim[1]) - x_test_noisy
-                               
-    if 's' in ruido: # sal e pimenta
+    if 'n' in ruidos:
+        x_train_noisy = np.ones((dim[0], dim[1])) - x_treino
+        x_test_noisy = np.ones((dim[0], dim[1])) - x_teste
+        
+        
+    if 's' in ruidos:  # sal e pimenta
         for i in range(len(x_train_noisy)):
-            sal = np.random.randint((dim[0],dim[1])).resize(dim[0],dim[1])
+            sal = np.random.randint(low=0, high=2, size=(dim[0], dim[1]))
             x_train_noisy[i] = np.multiply(x_train_noisy[i], sal)
             
-        for i in range(len(x_train_noisy)):
-            sal = np.random.randint((dim[0],dim[1])).resize(dim[0],dim[1])
+        for i in range(len(x_test_noisy)):
+            sal = np.random.randint(low=0, high=2, size=(dim[0], dim[1]))
             x_test_noisy[i] = np.multiply(x_test_noisy[i], sal)
             
             
@@ -149,7 +150,6 @@ def pre_processamento(x_treino, x_teste, ruidos='g'):
     if 'g' in ruidos:  # adiciona ruído gaussiano
         x_train_noisy = x_train_noisy + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=x_treino.shape) 
         x_test_noisy = x_test_noisy + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=x_teste.shape) 
-    
     
     
     x_treino = x_treino.reshape((len(x_treino), np.prod(x_treino.shape[1:])))
