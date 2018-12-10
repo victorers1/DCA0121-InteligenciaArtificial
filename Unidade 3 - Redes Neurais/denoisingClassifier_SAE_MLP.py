@@ -75,71 +75,70 @@ def read_img():
                                             test_size=0.20, random_state=42)
     return x_treino, x_teste, y_treino, y_teste
 
-
-def pre_processamento(x_treino, x_teste, pMode=1):
+def pre_processamento(x_treino, x_teste, ruidos='g'):
     '''
     Esta função primeiro escala os dados que originalmente estão entre 
     [0, 255] para o intervalo [0, 1].
+    
+    Depois são aplicados ruídos indicados no param 'ruidos'. 'ruidos' é uma 
+    string que pode conter as letras 'g', 'n', 'l', 'i' em qualquer ordem e em qualquer quatidade
+    
+    Valores que ficarem fora do intervalo [0, 1] são 'truncados' para 
+    obedecerem o intervalo.
+    
     Em seguida, a imagem que é de dimensão nxn se transforma em um vetor de 
     tamanho n² (n*n).
-    Depois é aplicado um ruído gaussiano a imagem. Valores que ficarem fora do 
-    intervalo [0, 1] são 'truncados' para obedecerem o intervalo.
+    
     Esta função retorna os dados normalizados assim como suas versões com 
     ruído.
-    pMode pode assumir três valores, são eles: 1 (definido como padrão), 2 e 3.
-    pMode = 1: A imagem original é submetida a um ruído gaussiano N(0, 1.5).
-    pMode = 2: A imagem original é transformada em seu respectivo negativo.
-    pMode = 3: É colocado uma tarja preta na imagem original.
-    pMode = Qualquer outro valor: A imagem original é transformada em seu 
-    respectivo negativo e em seguida é aplicado um ruído gaussiano
     '''
     max_value = float(x_treino.max())
     x_treino = x_treino.astype('float32') / max_value
     x_teste = x_teste.astype('float32') / max_value
-    noise_factor = 0.5 #Desvio padrão da distribuição normal
+    noise_factor = 0.5  # Desvio padrão da distribuição normal
     
     x_train_noisy = x_treino.copy()
     x_test_noisy = x_teste.copy()
     
-    if pMode == 1:
-        x_train_noisy = x_treino + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=x_treino.shape) 
-        x_test_noisy = x_teste + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=x_teste.shape) 
-    elif pMode == 2:
-        x_train_noisy = np.ones((x_treino.shape[1], x_treino.shape[2])) - x_treino
-        x_test_noisy = np.ones((x_treino.shape[1], x_treino.shape[2])) - x_teste
-    elif pMode == 3:
-        for img in x_train_noisy:            
+    
+    if 'n' in ruidos:
+        x_train_noisy = np.ones((x_treino.shape[1], x_treino.shape[2])) - x_train_noisy
+        x_test_noisy = np.ones((x_treino.shape[1], x_treino.shape[2])) - x_test_noisy
+    
+    if 'l' in ruidos:  # adiciona linha na frente da letra
+        for img in x_train_noisy:      
             ind1, ind2 = np.random.randint(0, 25, 2)
             cv.line(img, (0, ind1), (24, ind2), 0, 5)
         
         for img in x_test_noisy:
             ind1, ind2 = np.random.randint(0, 25, 2)
             cv.line(img, (0, ind1), (24, ind2), 0, 5)
-
-    else:
+    
+    if 'i' in ruidos:  # cria iluminação artificial
         dim = x_treino.shape[1:]  # dimensão das imagens
         a = np.ones((dim[0], dim[1]))
         
         for i in range(len(x_train_noisy)):
-            a = np.ones((dim[0], dim[1]))
             m_x, m_y = np.random.randint(0, dim[0], 2) # coordenadas da média
-            desvio = np.random.randint(12, 25)  # valores arbitrários
+            desvio = np.random.randint(8,13)  # valores nos argumentos são arbitrários
             for lin in range(dim[0]):
                 for col in range(dim[1]):
                     a[lin][col] = np.exp(-((lin-m_x)**2/(2*desvio**2)+(col-m_y)**2/(2*desvio**2)))
             x_train_noisy[i] = np.multiply(x_train_noisy[i], a)
-            #plt.imshow(img, cmap='gray'), plt.show()
             
         for i in range(len(x_test_noisy)):
-            a = np.ones((dim[0], dim[1]))
             m_x, m_y = np.random.randint(0, dim[0], 2) 
-            desvio = np.random.randint(12, 25)
+            desvio = np.random.randint(8,13)
             for lin in range(dim[0]):
                 for col in range(dim[1]):
                     a[lin][col] = np.exp(-((lin-m_x)**2/(2*desvio**2)+(col-m_y)**2/(2*desvio**2)))
             x_test_noisy[i] = np.multiply(x_test_noisy[i], a)
-            #plt.imshow(img, cmap='gray'), plt.show()
-        
+            
+    if 'g' in ruidos:  # adiciona ruído gaussiano
+        x_train_noisy = x_train_noisy + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=x_treino.shape) 
+        x_test_noisy = x_test_noisy + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=x_teste.shape) 
+    
+    
     
     x_treino = x_treino.reshape((len(x_treino), np.prod(x_treino.shape[1:])))
     x_teste = x_teste.reshape((len(x_teste), np.prod(x_teste.shape[1:])))
@@ -150,51 +149,45 @@ def pre_processamento(x_treino, x_teste, pMode=1):
 
 def plt1():
     #Print das figuras sem ruído (linha 1) e com ruído (linha 2)
-    n = 10  # how many digits we will display
+    n = 10  # Quantidade de letras impressas
     plt.figure(figsize=(15,3))
     for i in range(n):
         #Imagem original
         plt.subplot(2, n, i + 1)
         plt.imshow(x_teste[i].reshape(img_shape[0], img_shape[1]))
-        plt.gray()
-        plt.axis('off')
+        plt.gray(), plt.axis('off')
         
         #Imagem com ruído
         plt.subplot(2, n, i + 1 + n)
         plt.imshow(x_test_noisy[i].reshape(img_shape[0], img_shape[1]))
-        plt.gray()
-        plt.axis('off')
+        plt.gray(), plt.axis('off')
         
     plt.show()
     
     
 def plt2():
-    n = 10  #Quantidade de dígitos que serão mostrados
+    n = 10  # Quantidade de letras impressas
     plt.figure(figsize=(15,6))
     for i in range(n):
         #Imagem original
         plt.subplot(4, n, i + 1)
         plt.imshow(x_teste[i].reshape(img_shape[0], img_shape[1]))
-        plt.gray()
-        plt.axis('off')
+        plt.gray(), plt.axis('off')
         
         #Imagem com ruído
         plt.subplot(4, n, i + 1 + n)
         plt.imshow(x_test_noisy[i].reshape(img_shape[0], img_shape[1]))
-        plt.gray()
-        plt.axis('off')
+        plt.gray(), plt.axis('off')
         
         #Imagem codificada
         plt.subplot(4, n, i + 1 + 2*n)
         plt.imshow(encoded_imgs[i].reshape(enc_dis[0], enc_dis[1]))
-        plt.gray()
-        plt.axis('off')
+        plt.gray(), plt.axis('off')
         
         #Imagem reconstruída
         plt.subplot(4, n, i + 1 + 3*n)
         plt.imshow(decoded_imgs[i].reshape(img_shape[0], img_shape[1]))
-        plt.gray()
-        plt.axis('off')
+        plt.gray(), plt.axis('off')
     
     plt.show()
 
@@ -422,7 +415,6 @@ def features(res, label, title):
     '''    
     index = ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']
     columns = ['slope', 'intercept', 'r_value', 'p_value', 'std_err']
-    legenda = ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']
     cores = ['red', 'green', 'blue', 'cyan', 'purple', 'magenta', 
              'black', 'yellow', 'orange']
     estatisticas = {}
@@ -479,11 +471,11 @@ def unzip(x, frame, letra):
 
 #MODE pode ser 'START' ou 'BOOT'
 MODE = 'START'
-_2D = 'TRUE'
+_2D = 'FALSE'
 if MODE == 'START':
     x_treino, x_teste, y_treino, y_teste = read_img()
     img_shape = x_treino.shape[1:]
-    pMode=2 #Forma com que a imagem será modificada
+    pMode='g' #Forma com que a imagem será modificada
     x_treino, x_teste, x_train_noisy, x_test_noisy = pre_processamento(x_treino, x_teste, pMode)
     
     #Print das figuras sem ruído (linha 1) e com ruído (linha 2)
@@ -522,7 +514,7 @@ if MODE == 'START':
     
     ###############################################################################
     #A rede neural abaixo é uma MLP que irá classificar as imagens obtidas na 
-    #saída da SAE. 
+    #saída da SAE.
     model = Sequential()
     model.add(Dense(10, input_shape=(input_dim,), activation='sigmoid'))
     model.add(Dense(9, activation='softmax'))
