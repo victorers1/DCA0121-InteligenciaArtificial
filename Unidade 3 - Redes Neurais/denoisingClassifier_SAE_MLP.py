@@ -81,7 +81,8 @@ def pre_processamento(x_treino, x_teste, ruidos='g'):
     [0, 255] para o intervalo [0, 1].
     
     Depois são aplicados ruídos indicados no param 'ruidos'. 'ruidos' é uma 
-    string que pode conter as letras 'g', 'n', 'l', 'i' em qualquer ordem e em qualquer quatidade
+    string que pode conter as letras 'g', 's', 'l', 'i' e 'n' em qualquer ordem
+    e em qualquer quatidade
     
     Valores que ficarem fora do intervalo [0, 1] são 'truncados' para 
     obedecerem o intervalo.
@@ -100,11 +101,22 @@ def pre_processamento(x_treino, x_teste, ruidos='g'):
     x_train_noisy = x_treino.copy()
     x_test_noisy = x_teste.copy()
     
+    dim = x_treino.shape[1:]  # dimensão das imagens
     
-    if 'n' in ruidos:
-        x_train_noisy = np.ones((x_treino.shape[1], x_treino.shape[2])) - x_train_noisy
-        x_test_noisy = np.ones((x_treino.shape[1], x_treino.shape[2])) - x_test_noisy
-    
+    if 'n' in ruidos:  # transforma um imagem no seu negativo
+        x_train_noisy = np.ones((dim[0], dim[1])) - x_train_noisy
+        x_test_noisy = np.ones((dim[0], dim[1]) - x_test_noisy
+                               
+    if 's' in ruido: # sal e pimenta
+        for i in range(len(x_train_noisy)):
+            sal = np.random.randint((dim[0],dim[1])).resize(dim[0],dim[1])
+            x_train_noisy[i] = np.multiply(x_train_noisy[i], sal)
+            
+        for i in range(len(x_train_noisy)):
+            sal = np.random.randint((dim[0],dim[1])).resize(dim[0],dim[1])
+            x_test_noisy[i] = np.multiply(x_test_noisy[i], sal)
+            
+            
     if 'l' in ruidos:  # adiciona linha na frente da letra
         for img in x_train_noisy:      
             ind1, ind2 = np.random.randint(0, 25, 2)
@@ -113,9 +125,9 @@ def pre_processamento(x_treino, x_teste, ruidos='g'):
         for img in x_test_noisy:
             ind1, ind2 = np.random.randint(0, 25, 2)
             cv.line(img, (0, ind1), (24, ind2), 0, 5)
+            
     
     if 'i' in ruidos:  # cria iluminação artificial
-        dim = x_treino.shape[1:]  # dimensão das imagens
         a = np.ones((dim[0], dim[1]))
         
         for i in range(len(x_train_noisy)):
@@ -475,7 +487,7 @@ _2D = 'FALSE'
 if MODE == 'START':
     x_treino, x_teste, y_treino, y_teste = read_img()
     img_shape = x_treino.shape[1:]
-    pMode='g' #Forma com que a imagem será modificada
+    pMode='s' #Forma com que a imagem será modificada
     x_treino, x_teste, x_train_noisy, x_test_noisy = pre_processamento(x_treino, x_teste, pMode)
     
     #Print das figuras sem ruído (linha 1) e com ruído (linha 2)
