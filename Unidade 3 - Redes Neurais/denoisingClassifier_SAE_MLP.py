@@ -13,7 +13,8 @@ from sklearn.metrics import confusion_matrix
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
-
+from scipy import stats
+import pandas as pd
 
 def plot_confusion_matrix(cm, classes,
                           normalize=False,
@@ -119,24 +120,24 @@ def pre_processamento(x_treino, x_teste, pMode=1):
         dim = x_treino.shape[1:]  # dimensão das imagens
         a = np.ones((dim[0], dim[1]))
         
-        for img in x_train_noisy:
+        for i in range(len(x_train_noisy)):
             a = np.ones((dim[0], dim[1]))
             m_x, m_y = np.random.randint(0, dim[0], 2) # coordenadas da média
             desvio = np.random.randint(12, 25)  # valores arbitrários
             for lin in range(dim[0]):
                 for col in range(dim[1]):
                     a[lin][col] = np.exp(-((lin-m_x)**2/(2*desvio**2)+(col-m_y)**2/(2*desvio**2)))
-            img = np.multiply(img, a)
+            x_train_noisy[i] = np.multiply(x_train_noisy[i], a)
             #plt.imshow(img, cmap='gray'), plt.show()
             
-        for img in x_test_noisy:
+        for i in range(len(x_test_noisy)):
             a = np.ones((dim[0], dim[1]))
             m_x, m_y = np.random.randint(0, dim[0], 2) 
             desvio = np.random.randint(12, 25)
             for lin in range(dim[0]):
                 for col in range(dim[1]):
                     a[lin][col] = np.exp(-((lin-m_x)**2/(2*desvio**2)+(col-m_y)**2/(2*desvio**2)))
-            img = np.multiply(img, a)
+            x_test_noisy[i] = np.multiply(x_test_noisy[i], a)
             #plt.imshow(img, cmap='gray'), plt.show()
         
     
@@ -309,12 +310,180 @@ def boot():
             x_test_noisy, encoded_imgs, decoded_imgs, pMode, W_SAE, W_MLP, 
             encoding_dim, enc_dis)
 
+def SAE_2D():
+    encoding_dim = 2 #Menor tamanho da representação da imagem
+    
+    #input_dim  é o tamanho da camada de entrada (qtd de pixels da imagem)
+    input_dim2D = x_treino.shape[1]
+    
+    #Rede Neural SAE
+    autoencoder2D = Sequential()
+    
+    #Encoder Layers
+    autoencoder2D.add(Dense(64 * encoding_dim, input_shape=(input_dim,), 
+                          activation='relu')) #625 -> 100
+    autoencoder2D.add(Dense(32 * encoding_dim, activation='relu')) #100 -> 50
+    autoencoder2D.add(Dense(12 * encoding_dim, activation='relu')) #100 -> 50
+    autoencoder2D.add(Dense(4 * encoding_dim, activation='relu')) #100 -> 50
+    autoencoder2D.add(Dense(encoding_dim, activation='relu')) #50 -> 25
+    
+    #Decoder Layers
+    autoencoder2D.add(Dense(4 * encoding_dim, activation='relu')) #25 -> 50
+    autoencoder2D.add(Dense(12 * encoding_dim, activation='relu')) #25 -> 50
+    autoencoder2D.add(Dense(32 * encoding_dim, activation='relu')) #25 -> 50
+    autoencoder2D.add(Dense(64 * encoding_dim, activation='relu')) #50 -> 100
+    autoencoder2D.add(Dense(input_dim, activation='sigmoid')) #100 -> 625
+    
+    autoencoder2D.summary() #Mostra no console a arquitetura da rede 
+    
+    #Com a finalidade de plotar a imagem codificada no plano cartesiano
+    #ENCODER
+    input_img2D = Input(shape=(input_dim2D,))
+    encoder_layer1 = autoencoder2D.layers[0]
+    encoder_layer2 = autoencoder2D.layers[1]
+    encoder_layer3 = autoencoder2D.layers[2]
+    encoder_layer4 = autoencoder2D.layers[3]
+    encoder_layer5 = autoencoder2D.layers[4]
+    encoder2D = Model(input_img2D, encoder_layer5(encoder_layer4(encoder_layer3(encoder_layer2(encoder_layer1(input_img2D))))))
+    
+    #Mostra no console a arquitetura da rede (Parte do Encoder)
+    encoder2D.summary()
+    
+    #Com o objetivo de reconstruir a imagem
+    #DECODER
+    input_img2D = Input(shape=(2,))
+    decoder_layer5 = autoencoder2D.layers[5]
+    decoder_layer6 = autoencoder2D.layers[6]
+    decoder_layer7 = autoencoder2D.layers[7]
+    decoder_layer8 = autoencoder2D.layers[8]
+    decoder_layer9 = autoencoder2D.layers[9]
+    decoder2D = Model(input_img2D, decoder_layer9(decoder_layer8(decoder_layer7(decoder_layer6(decoder_layer5(input_img2D))))))
+    
+    #Mostra no console a arquitetura da rede (Parte do Encoder)
+    decoder2D.summary()
+    
+    autoencoder2D.compile(optimizer='adadelta', loss='binary_crossentropy', 
+                        metrics=['accuracy'])
+    monitor = callbacks.EarlyStopping(monitor='loss', min_delta=1e-5, 
+                                      patience=2, verbose=2, mode='auto')
+    #Treina a rede SAE
+    SAE2D = autoencoder2D.fit(x_train_noisy, x_treino,
+                    epochs=70,
+                    batch_size=20,
+                    validation_data=(x_test_noisy, x_teste), 
+                    callbacks=[monitor], verbose=2)
+    
+    #Valor da função custo e precisão da rede durante o treinamento
+    plt.plot(SAE2D.history['loss'])
+    plt.plot(SAE2D.history['acc'])
+    plt.legend(('Custo','Precisão'), loc='upper right')
+    plt.title('Históricos')
+    plt.xlabel('Época'); plt.show()
+    
+    return encoder2D, decoder2D, autoencoder2D
+    
+    
+def plt3(data, label, title):
+    '''
+    Esta função plota a imagem codificada em 2D no plano cartesiano.
+    Cada classe (letra) tem uma respectiva cor associada.
+    '''
+    #Predição da imagem (com modificação a.k.a ruído) codificada
+    encoded_imgs2D = encoder2D.predict(data)
+    cores = ['red', 'green', 'blue', 'cyan', 'purple', 'magenta', 
+             'black', 'yellow', 'orange']
+    legenda = ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']
+    res = []
+    for i in range(len(set(label))):
+        res.append(encoded_imgs2D[label == i])
+    for i in range(len(res)):
+        plt.scatter(res[i][:,0], res[i][:,1], color = cores[i], 
+                    label = legenda[i])
+    plt.title(title)
+    plt.legend(legenda, loc='center left', bbox_to_anchor=(1, 0.69), 
+               fancybox=True, shadow=True)
+    plt.show()
+    
+    return res
+    
+    
+def features(res, label, title):   
+    '''
+    res: Lista com os pares (x,y) de cada letra.
+    label: O rótulo dos dados que foram codificados.
+    title: título da imagem a ser plotada.
+    
+    Essa função extrai a estatística dos dados plotados com a função plt3().
+    slope: Coeficiente angular da reta.
+    intercept: Coeficiente linear da reta.
+    r_value: Correlação dos dados.
+    p_value: p valor para teste de hipótese.
+    std_err: Desvio padrão
+    '''    
+    index = ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']
+    columns = ['slope', 'intercept', 'r_value', 'p_value', 'std_err']
+    legenda = ['a', 'b', 'c', 'd', 'e', 'f', 'i', 'o', 'u']
+    cores = ['red', 'green', 'blue', 'cyan', 'purple', 'magenta', 
+             'black', 'yellow', 'orange']
+    estatisticas = {}
+    slope = []
+    intercept = []
+    r_value = []
+    p_value = []
+    std_err = []
+    for i in range(len(res)):
+        temp = stats.linregress(res[i][:,0], res[i][:,1])
+        slope.append(temp[0])
+        intercept.append(temp[1])
+        r_value.append(temp[2])
+        p_value.append(temp[3])
+        std_err.append(temp[4])
+    est = [slope, intercept, r_value, p_value, std_err]
+    for i in range(len(columns)):
+        estatisticas[columns[i]] = est[i]
+    
+    estFrame = pd.DataFrame(data = estatisticas, index = index)
+    print(estFrame)
+    
+    #Plotar as retas da regressão linear
+    x = np.linspace(0, 40, 100)
+    for i in range(len(res)):
+        for j in range(len(x)):
+            plt.plot(x, x*slope[i] + intercept[i], color=cores[i])
+        plt.scatter(res[i][:,0], res[i][:,1], color = cores[i])
+    plt.title(title)
+    plt.show()
+    
+    return estFrame
+
+def unzip(x, frame, letra):
+    '''
+    x: inteiro ou float que dá uma posição no plano cartesiano.
+    frame: DataFrama do pandas com as estatísticas dos dados.
+    letra: Uma das letras do dataset (a, b, c, d, e, f, i, o, u).
+    
+    Essa função, a partir de um valor de x consegue decodificar algo em 2D 
+    para a dimensão original (25,25).
+    
+    O valor de y é calculado através da equação da reta, que depende de cada 
+    letra.
+    '''
+    #Predição da imagem com ruído (espera-se que a rede tenha eliminado o ruído)
+    #decoded_imgs2D_teste = autoencoder2D.predict(x_test_noisy)
+    y = x*frame['slope'][letra] + frame['intercept'][letra]
+    _2Dimg = np.array([[x, y],])
+    decoded_img = decoder2D.predict(_2Dimg)
+    decoded_img = decoded_img.reshape(25,25)
+    plt.imshow(decoded_img)
+    
+
 #MODE pode ser 'START' ou 'BOOT'
 MODE = 'START'
+_2D = 'TRUE'
 if MODE == 'START':
     x_treino, x_teste, y_treino, y_teste = read_img()
     img_shape = x_treino.shape[1:]
-    pMode=4 #Forma com que a imagem será modificada
+    pMode=2 #Forma com que a imagem será modificada
     x_treino, x_teste, x_train_noisy, x_test_noisy = pre_processamento(x_treino, x_teste, pMode)
     
     #Print das figuras sem ruído (linha 1) e com ruído (linha 2)
@@ -323,7 +492,7 @@ if MODE == 'START':
     #Construção da rede neural SAE (Stacked Autoencoder)
     #A rede terá a arquitetura (625, 100, 50, 25, 50, 100, 625)
     autoencoder, encoder, input_dim, encoding_dim, enc_dis = SAE_Model()
-    
+    #autoencoder2D, encoder2D, input_dim2D, encoding_dim2D = SAE_2D()
     #Parâmetros para o treinamento da rede neural
     autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy', 
                         metrics=['accuracy'])
@@ -369,6 +538,7 @@ if MODE == 'START':
     
     #Treina a rede MLP
     H = model.fit(x_treino, y_treino, epochs=40, batch_size=20, 
+                  validation_data=(x_teste, y_teste), 
                   callbacks=[monitor], verbose=2) 
     
     #Valor da função custo e precisão da rede durante o treinamento
@@ -379,7 +549,30 @@ if MODE == 'START':
     plt.xlabel('Época'); plt.show()
     
     predict()
-
+    
+    if _2D == 'TRUE':
+        encoder2D, decoder2D, autoencoder2D = SAE_2D()
+        W_SAE2D = autoencoder.get_weights()
+        np.save('W_SAE2D.npy', W_SAE2D)
+        
+        x_test_noisy2D_title = 'Representação em 2D dos DADOS DE TESTE (imagens modificadas)'
+        res_x_test_noisy = plt3(x_test_noisy, y_teste, x_test_noisy2D_title)
+        
+        x_treino2D_title = 'Representação em 2D dos DADOS DE TREINO (imagens originais)'
+        res_x_train_noisy = plt3(x_train_noisy, y_treino, x_treino2D_title)
+        
+        title = 'Dados de Teste com Ruído codificados em 2D e Regressão Linear'
+        frameTest_noisy = features(res_x_test_noisy, y_teste, title)
+        
+        title = 'Dados de Treino codificados em 2D e Regressão Linear'
+        frameTreino = features(res_x_train_noisy, y_treino, title)
+        
+        frame = frameTest_noisy 
+        letra = 'o'
+        x = 1
+        unzip(x, frame, letra)
+        
+        
 elif MODE == 'BOOT':
     (x_treino, x_teste, y_treino, y_teste, x_train_noisy, 
             x_test_noisy, encoded_imgs, decoded_imgs, pMode, W_SAE, W_MLP, 
